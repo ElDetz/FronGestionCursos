@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Cursos - San Juan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+  <h2 class="mb-4">📚 Cursos Académicos</h2>
+
+  <!-- Formulario para agregar curso -->
+  <div class="card p-4 mb-4">
+    <h5>Agregar Curso</h5>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <input id="nombre" type="text" class="form-control" placeholder="Nombre del curso">
+      </div>
+      <div class="col-md-2">
+        <input id="creditos" type="number" class="form-control" placeholder="Créditos">
+      </div>
+      <div class="col-md-2">
+        <input id="horas" type="number" class="form-control" placeholder="Horas/sem">
+      </div>
+      <div class="col-md-2">
+        <input id="ciclo" type="text" class="form-control" placeholder="Ciclo">
+      </div>
+      <div class="col-md-2">
+        <select id="docente" class="form-select">
+          <option value="">Docente</option>
+        </select>
+      </div>
+    </div>
+    <button onclick="agregarCurso()" class="btn btn-success mt-3">Guardar</button>
+    <button onclick="limpiarFormulario()" class="btn btn-secondary mt-3 ms-2">Cancelar</button>
+  </div>
+
+  <div class="mb-3">
+    <h2 class="mb-4">🔍 Busqueda</h2>
+    <input id="buscarCiclo" type="text" class="form-control w-25 d-inline" placeholder="Buscar por ciclo">
+    <button onclick="buscarPorCiclo()" class="btn btn-primary ms-2">Buscar</button>
+    <button onclick="cargarCursos()" class="btn btn-secondary ms-1">Mostrar todos</button>
+  </div>
+
+  <!-- Tabla de cursos -->
+  <table class="table table-bordered table-striped">
+    <thead class="table-dark">
+      <tr>
+        <th>Nombre</th>
+        <th>Créditos</th>
+        <th>Horas</th>
+        <th>Ciclo</th>
+        <th>Docente</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="tabla-cursos">
+      <!-- Se llenará dinámicamente -->
+    </tbody>
+  </table>
+</div>
+
+<script>
+const API_URL = "https://gestioncursos-w24m.onrender.com/api"; // Puerto del API
+
+async function cargarCursos() {
+  const res = await fetch(`${API_URL}/cursos`);
+  if (!res.ok) {
+    console.error("Error al obtener cursos:", res.status);
+    return;
+  }
+  const cursos = await res.json();
+  const tabla = document.getElementById("tabla-cursos");
+  tabla.innerHTML = "";
+
+  cursos.forEach(curso => {
+  tabla.innerHTML += `
+    <tr>
+      <td>${curso.nombre}</td>
+      <td>${curso.creditos}</td>
+      <td>${curso.horasSemanal}</td>
+      <td>${curso.ciclo}</td>
+      <td>${curso.nombreDocente}</td>
+      <td>
+        <button class="btn btn-sm btn-warning" onclick="editarCurso(${curso.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="eliminarCurso(${curso.id})">🗑️</button>
+      </td>
+    </tr>`;
+});
+}
+
+async function cargarDocentes() {
+  const res = await fetch(`${API_URL}/docentes`);
+  if (!res.ok) {
+    console.error("Error al obtener docentes:", res.status);
+    return;
+  }
+  const docentes = await res.json();
+  const select = document.getElementById("docente");
+  select.innerHTML = `<option value="">Docente</option>`;
+
+  docentes.forEach(d => {
+    select.innerHTML += `<option value="${d.id}">${d.nombres} ${d.apellidos}</option>`;
+  });
+}
+
+async function agregarCurso() {
+  const nombre = document.getElementById("nombre").value;
+  const creditos = document.getElementById("creditos").value;
+  const horas = document.getElementById("horas").value;
+  const ciclo = document.getElementById("ciclo").value;
+  const idDocente = document.getElementById("docente").value;
+
+  const curso = { nombre, creditos, horasSemanal: horas, ciclo, idDocente };
+
+  let res;
+
+  if (editandoId) {
+    // Modo edición
+    res = await fetch(`${API_URL}/cursos/${editandoId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(curso)
+    });
+
+    if (res.ok) {
+      alert("✅ Curso actualizado");
+      editandoId = null;
+    } else {
+      alert("❌ Error al actualizar");
+    }
+  } else {
+    // Modo creación
+    res = await fetch(`${API_URL}/cursos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(curso)
+    });
+
+    if (res.ok) {
+      alert("✅ Curso agregado correctamente");
+    } else {
+      const err = await res.text();
+      alert("❌ Error: " + err);
+    }
+  }
+
+  // Limpiar formulario y recargar tabla
+  document.getElementById("nombre").value = "";
+  document.getElementById("creditos").value = "";
+  document.getElementById("horas").value = "";
+  document.getElementById("ciclo").value = "";
+  document.getElementById("docente").value = "";
+
+  cargarCursos();
+}
+
+let editandoId = null;
+function limpiarFormulario() {
+  document.getElementById("nombre").value = "";
+  document.getElementById("creditos").value = "";
+  document.getElementById("horas").value = "";
+  document.getElementById("ciclo").value = "";
+  document.getElementById("docente").value = "";
+  editandoId = null;
+}
+async function editarCurso(id) {
+  const res = await fetch(`${API_URL}/cursos/${id}`);
+  if (!res.ok) return alert("No se pudo cargar el curso");
+
+  const curso = await res.json();
+
+  document.getElementById("nombre").value = curso.nombre;
+  document.getElementById("creditos").value = curso.creditos;
+  document.getElementById("horas").value = curso.horasSemanal;
+  document.getElementById("ciclo").value = curso.ciclo;
+
+  // Buscar el ID del docente por nombre
+  const select = document.getElementById("docente");
+  for (let option of select.options) {
+    if (option.text === curso.nombreDocente) {
+      option.selected = true;
+      break;
+    }
+  }
+
+  editandoId = id;
+}
+
+async function eliminarCurso(id) {
+  if (!confirm("¿Deseas eliminar este curso?")) return;
+
+  const res = await fetch(`${API_URL}/cursos/${id}`, { method: "DELETE" });
+
+  if (res.ok) {
+    alert("✅ Curso eliminado");
+    cargarCursos();
+  } else {
+    alert("❌ Error al eliminar");
+  }
+}
+
+async function buscarPorCiclo() {
+  const ciclo = document.getElementById("buscarCiclo").value.trim();
+  if (!ciclo) return;
+
+  const res = await fetch(`${API_URL}/cursos/ciclo/${ciclo}`);
+  if (!res.ok) return alert("Error al buscar por ciclo");
+
+  const cursos = await res.json();
+  const tabla = document.getElementById("tabla-cursos");
+  tabla.innerHTML = "";
+
+  cursos.forEach(curso => {
+    tabla.innerHTML += `
+      <tr>
+        <td>${curso.nombre}</td>
+        <td>${curso.creditos}</td>
+        <td>${curso.horasSemanal}</td>
+        <td>${curso.ciclo}</td>
+        <td>${curso.nombreDocente}</td>
+        <td>
+          <button class="btn btn-sm btn-warning" onclick="editarCurso(${curso.id})">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="eliminarCurso(${curso.id})">🗑️</button>
+        </td>
+      </tr>`;
+  });
+}
+
+// Cargar datos al iniciar
+cargarDocentes();
+cargarCursos();
+</script>
+
+</body>
+</html>
